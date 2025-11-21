@@ -119,7 +119,8 @@ async def questions_list(callback_query: CallbackQuery) -> None:
 
     text = f"Savollar ro'yxati (sahifa {page}/{total_pages}):\n\n"
     for i, question in enumerate(questions, start=offset + 1):
-        text += f"{i}. 📄 Savol nomi: {question.name}\n"
+        first_line = question.name.split('\n')[0]
+        text += f"{i}. 📄 Savol nomi: {first_line}\n"
 
     await callback_query.message.edit_text(
         text=text,
