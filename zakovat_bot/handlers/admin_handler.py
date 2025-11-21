@@ -2,12 +2,11 @@ from aiogram import F
 from aiogram.types import CallbackQuery,   Message
 from aiogram.filters import  StateFilter
 from zakovat_bot.models import  TelegramAdminsID,Questions
-from zakovat_bot.dispatcher import dp,bot
+from zakovat_bot.dispatcher import dp
 from zakovat_bot.buttons.inline import *
 from aiogram.fsm.context import FSMContext
 from zakovat_bot.state import  QuestionState
 from django.utils import timezone
-from decouple import config
 from zakovat_bot.utils import sent_file_to_admins
 
 PER_PAGE = 10
@@ -59,25 +58,25 @@ async def process_new_question(message: Message, state: FSMContext) -> None:
     elif message.photo:
         await message.answer_photo(
             photo=message.photo[-1].file_id,
-            caption=message.caption or "",
+            caption=question_name,
             reply_markup=main_keyboard(question.uuid)
         )
     elif message.video:
         await message.answer_video(
             video=message.video.file_id,
-            caption=message.caption or "",
+            caption=question_name,
             reply_markup=main_keyboard(question.uuid)
         )
     elif message.voice:
         await message.answer_voice(
             voice=message.voice.file_id,
-            caption=message.caption or "",
+            caption=question_name,
             reply_markup=main_keyboard(question.uuid)
         )
     elif message.document:
         await message.answer_document(
             document=message.document.file_id,
-            caption=message.caption or "",
+            caption=question_name,
             reply_markup=main_keyboard(question.uuid)
         )
     await message.answer(text="Yangi savol muvaffaqiyatli qo'shildi!",reply_markup=admin_main_keyboard())
