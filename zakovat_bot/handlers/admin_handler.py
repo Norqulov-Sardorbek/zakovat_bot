@@ -2,13 +2,15 @@ from aiogram import F
 from aiogram.types import CallbackQuery,   Message
 from aiogram.filters import  StateFilter
 from zakovat_bot.models import  TelegramAdminsID,Questions
-from zakovat_bot.dispatcher import dp
+from zakovat_bot.dispatcher import dp,bot
 from zakovat_bot.buttons.inline import *
 from aiogram.fsm.context import FSMContext
 from zakovat_bot.state import  QuestionState
 from django.utils import timezone
 from zakovat_bot.utils import sent_file_to_admins
+from decouple import config
 
+CHANNEL_ID = config("CHANNEL_USERNAME")
 PER_PAGE = 10
 @dp.message(F.text == "admin_panel")
 async def start(message: Message) -> None:
@@ -46,47 +48,61 @@ async def process_question_name(message: Message, state: FSMContext) -> None:
 async def process_new_question(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
     question_name = data.get("question_name")
-    question=Questions.objects.create(
+
+    # Savolni DB ga vaqtincha saqlaymiz
+    question = Questions.objects.create(
         name=question_name,
+        file_id=message.audio.file_id if message.audio else
+                message.photo[-1].file_id if message.photo else
+                message.video.file_id if message.video else
+                message.voice.file_id if message.voice else
+                message.document.file_id if message.document else
+                None,
+        file_type=message.content_type,   
         questioned_at=timezone.now()
     )
-    keyboard = main_keyboard(question.uuid)
+
+    # Faqat preview ko‘rsatamiz (kanalga yubormaymiz!)
+    kb = approve_keyboard(question.id)
+
     if message.text:
-        await message.answer(
-            text=message.text,
-            reply_markup=keyboard
-        )
+        await message.answer(message.text, reply_markup=kb)
+
     elif message.photo:
         await message.answer_photo(
             photo=message.photo[-1].file_id,
             caption=question_name,
-            reply_markup=keyboard
+            reply_markup=kb
         )
-    elif message.audio:  
+
+    elif message.audio:
         await message.answer_audio(
             audio=message.audio.file_id,
             caption=question_name,
-            reply_markup=keyboard
+            reply_markup=kb
         )
+
     elif message.video:
         await message.answer_video(
             video=message.video.file_id,
             caption=question_name,
-            reply_markup=keyboard
+            reply_markup=kb
         )
+
     elif message.voice:
         await message.answer_voice(
             voice=message.voice.file_id,
             caption=question_name,
-            reply_markup=keyboard
+            reply_markup=kb
         )
+
     elif message.document:
         await message.answer_document(
             document=message.document.file_id,
             caption=question_name,
-            reply_markup=keyboard
+            reply_markup=kb
         )
-    await message.answer(text="Yangi savol muvaffaqiyatli qo'shildi!",reply_markup=admin_main_keyboard())
+
     await state.clear()
     
     
@@ -152,10 +168,76 @@ async def change_question(callback_query: CallbackQuery) -> None:
        
     elif action == "delete":
         question.delete()
+        await callback_query.message.delete()
         await callback_query.message.answer(text="Savol muvaffaqiyatli o'chirildi.", reply_markup=admin_main_keyboard())
         
         
-@dp.callback_query(F.data == "admin_main_menu")
+@dp.callback_query( F.data == "cancel")
+async def admin_main(callback_query: CallbackQuery) -> None:
+    await callback_query.answer()
+    await callback_query.message.delete()
+    await callback_query.message.answer(text="Admin paneli",reply_markup=admin_main_keyboard())
+    
+    
+@dp.callback_query(F.data == "admin_main_menu" )
 async def admin_main_menu(callback_query: CallbackQuery) -> None:
     await callback_query.answer()
     await callback_query.message.edit_text(text="Admin paneli",reply_markup=admin_main_keyboard())
+    
+    
+@dp.callback_query(F.data.startswith("approve:"))
+async def approve_publish(callback: CallbackQuery):
+    question_id = int(callback.data.split(":")[1])
+    question = Questions.objects.get(id=question_id)
+    keyboard = main_keyboard(question.uuid)
+
+    if question.file_type == "text":
+        await bot.send_message(
+            chat_id=CHANNEL_ID,
+            text=question.name,
+            reply_markup=keyboard
+        )
+
+    elif question.file_type == "photo":
+        await bot.send_photo(
+            chat_id=CHANNEL_ID,
+            photo=question.file_id,
+            caption=question.name,
+            reply_markup=keyboard
+        )
+
+    elif question.file_type == "audio":
+        await bot.send_audio(
+            chat_id=CHANNEL_ID,
+            audio=question.file_id,
+            caption=question.name,
+            reply_markup=keyboard
+        )
+
+    elif question.file_type == "video":
+        await bot.send_video(
+            chat_id=CHANNEL_ID,
+            video=question.file_id,
+            caption=question.name,
+            reply_markup=keyboard
+        )
+
+    elif question.file_type == "voice":
+        await bot.send_voice(
+            chat_id=CHANNEL_ID,
+            voice=question.file_id,
+            caption=question.name,
+            reply_markup=keyboard
+        )
+
+    elif question.file_type == "document":
+        await bot.send_document(
+            chat_id=CHANNEL_ID,
+            document=question.file_id,
+            caption=question.name,
+            reply_markup=keyboard
+        )
+
+    await callback.message.edit_reply_markup()
+    await callback.message.answer("📤 Kanalga muvaffaqiyatli joylandi!")
+    await callback.answer()

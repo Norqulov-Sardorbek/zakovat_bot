@@ -82,3 +82,11 @@ def questions_list_keyboard(questions, page: int, total: int, per_page: int):
     )
 
     return builder.as_markup()
+
+
+def approve_keyboard(question_id):
+    kb = InlineKeyboardBuilder()
+    kb.button(text="📤 Ha, kanalga joylash", callback_data=f"approve:{question_id}")
+    kb.button(text="❌ Bekor qilish", callback_data="cancel")
+    kb.adjust(1)
+    return kb.as_markup()

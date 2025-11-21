@@ -21,6 +21,8 @@ class Users(SafeBaseModel):
 
 class Questions(SafeBaseModel):
     name = models.CharField(max_length=255, blank=True, null=True)
+    file_id = models.CharField(max_length=255, blank=True, null=True)
+    file_type = models.CharField(max_length=50, blank=True, null=True)
     questioned_at = models.DateTimeField(auto_now_add=True)
     answers_file_sent = models.BooleanField(default=False)
     
