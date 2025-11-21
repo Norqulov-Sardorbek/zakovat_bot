@@ -9,6 +9,7 @@ from aiogram.fsm.context import FSMContext
 from zakovat_bot.state import Register
 from django.utils import timezone
 from zakovat_bot.utils import sent_file_to_admins
+
 @dp.message(Command("start"))
 async def start(message: Message,state: FSMContext) -> None:
     tg_id = message.from_user.id

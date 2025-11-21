@@ -9,7 +9,6 @@ from zakovat_bot.state import  QuestionState
 from django.utils import timezone
 from decouple import config
 from zakovat_bot.utils import sent_file_to_admins
-from aiogram.types import ReplyKeyboardRemove
 
 CHANNEL_ID = config("CHANNEL_USERNAME")
 PER_PAGE = 10
