@@ -50,34 +50,41 @@ async def process_new_question(message: Message, state: FSMContext) -> None:
         name=question_name,
         questioned_at=timezone.now()
     )
+    keyboard = main_keyboard(question.uuid)
     if message.text:
         await message.answer(
             text=message.text,
-            reply_markup=main_keyboard(question.uuid)
+            reply_markup=keyboard
         )
     elif message.photo:
         await message.answer_photo(
             photo=message.photo[-1].file_id,
             caption=question_name,
-            reply_markup=main_keyboard(question.uuid)
+            reply_markup=keyboard
+        )
+    elif message.audio:  
+        await message.answer_audio(
+            audio=message.audio.file_id,
+            caption=question_name,
+            reply_markup=keyboard
         )
     elif message.video:
         await message.answer_video(
             video=message.video.file_id,
             caption=question_name,
-            reply_markup=main_keyboard(question.uuid)
+            reply_markup=keyboard
         )
     elif message.voice:
         await message.answer_voice(
             voice=message.voice.file_id,
             caption=question_name,
-            reply_markup=main_keyboard(question.uuid)
+            reply_markup=keyboard
         )
     elif message.document:
         await message.answer_document(
             document=message.document.file_id,
             caption=question_name,
-            reply_markup=main_keyboard(question.uuid)
+            reply_markup=keyboard
         )
     await message.answer(text="Yangi savol muvaffaqiyatli qo'shildi!",reply_markup=admin_main_keyboard())
     await state.clear()
