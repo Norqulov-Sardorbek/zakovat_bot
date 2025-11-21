@@ -10,7 +10,6 @@ from django.utils import timezone
 from decouple import config
 from zakovat_bot.utils import sent_file_to_admins
 
-CHANNEL_ID = config("CHANNEL_USERNAME")
 PER_PAGE = 10
 @dp.message(F.text == "admin_panel")
 async def start(message: Message) -> None:
@@ -53,35 +52,30 @@ async def process_new_question(message: Message, state: FSMContext) -> None:
         questioned_at=timezone.now()
     )
     if message.text:
-        await bot.send_message(
-            chat_id=CHANNEL_ID,
+        await message.answer(
             text=message.text,
             reply_markup=main_keyboard(question.uuid)
         )
     elif message.photo:
-        await bot.send_photo(
-            chat_id=CHANNEL_ID,
+        await message.answer_photo(
             photo=message.photo[-1].file_id,
             caption=message.caption or "",
             reply_markup=main_keyboard(question.uuid)
         )
     elif message.video:
-        await bot.send_video(
-            chat_id=CHANNEL_ID,
+        await message.answer_video(
             video=message.video.file_id,
             caption=message.caption or "",
             reply_markup=main_keyboard(question.uuid)
         )
     elif message.voice:
-        await bot.send_voice(
-            chat_id=CHANNEL_ID,
+        await message.answer_voice(
             voice=message.voice.file_id,
             caption=message.caption or "",
             reply_markup=main_keyboard(question.uuid)
         )
     elif message.document:
-        await bot.send_document(
-            chat_id=CHANNEL_ID,
+        await message.answer_document(
             document=message.document.file_id,
             caption=message.caption or "",
             reply_markup=main_keyboard(question.uuid)
