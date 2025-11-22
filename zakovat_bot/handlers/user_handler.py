@@ -67,6 +67,7 @@ async def register_phone_number(message: Message, state: FSMContext):
     tg_id = message.from_user.id
     user = Users.objects.get(tg_id=tg_id)
     user.phone_number = message.contact.phone_number
+    user.username= message.from_user.username or ""
     user.save()
 
     await message.answer(
