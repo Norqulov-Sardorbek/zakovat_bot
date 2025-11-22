@@ -248,7 +248,7 @@ async def approve_publish(callback: CallbackQuery):
 @dp.callback_query(F.data == "user_talk")
 async def user_talk(callback_query: CallbackQuery,state: FSMContext) -> None:
     await callback_query.answer()
-    await callback_query.message.answer(text="💬 Suhbat uchun foydalanuvchi ID sini yuboring:")
+    await callback_query.message.answer(text="💬 Suhbat uchun foydalanuvchi ID sini yuboring:",reply_markup=back_keyboard())
     await state.set_state(QuestionState.user_id)
     
     
@@ -256,16 +256,16 @@ async def user_talk(callback_query: CallbackQuery,state: FSMContext) -> None:
 async def process_user_id(message: Message, state: FSMContext) -> None:
     tg_id_text = message.text.strip() if message.text else None
     if not tg_id_text or not tg_id_text.isdigit():
-        await message.answer("❗️ Iltimos, foydalanuvchi ID sini to'g'ri formatda yuboring.")
+        await message.answer("❗️ Iltimos, foydalanuvchi ID sini to'g'ri formatda yuboring.",reply_markup=back_keyboard())
         return
 
     tg_id = int(tg_id_text)
     await state.update_data(user_talk_id=tg_id)
     if not Users.objects.filter(tg_id=tg_id).exists():
-        await message.answer("❗️ Bunday ID li foydalanuvchi topilmadi. Iltimos, to'g'ri ID ni kiriting.")
+        await message.answer("❗️ Bunday ID li foydalanuvchi topilmadi. Iltimos, to'g'ri ID ni kiriting.",reply_markup=back_keyboard())
         return
     await message.answer(
-        text=f"💬 Foydalanuvchi (ID: {tg_id}) bilan suhbatni boshlang. Sizning xabaringiz ushbu foydalanuvchiga yuboriladi."
+        text=f"💬 Foydalanuvchi (ID: {tg_id}) bilan suhbatni boshlang. Sizning xabaringiz ushbu foydalanuvchiga yuboriladi.",reply_markup=back_keyboard()
     )
     await state.set_state(QuestionState.user_talk)
 
