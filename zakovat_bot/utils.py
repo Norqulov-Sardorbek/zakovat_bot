@@ -33,7 +33,7 @@ def build_answers_excel(question):
     ws.title = "Answers"
 
     # Sarlavhalar
-    ws.append(["Username", "Full name", "Answer", "Answer time"])
+    ws.append(["Telegram ID", "Username", "Phone number", "Full name", "Answer", "Answer time"])
 
     answers = (
         Answers.objects
@@ -47,7 +47,9 @@ def build_answers_excel(question):
         answer_time_str = humanize_timedelta(delta)
 
         ws.append([
+            ans.user.tg_id or "",
             ans.user.username or "",
+            ans.user.phone_number or "",
             ans.user.full_name or "",
             ans.answer,
             answer_time_str,

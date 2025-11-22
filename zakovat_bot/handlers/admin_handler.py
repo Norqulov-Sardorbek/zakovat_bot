@@ -1,11 +1,11 @@
 from aiogram import F
 from aiogram.types import CallbackQuery,   Message
 from aiogram.filters import  StateFilter
-from zakovat_bot.models import  TelegramAdminsID,Questions
+from zakovat_bot.models import  TelegramAdminsID,Questions, Users
 from zakovat_bot.dispatcher import dp,bot
 from zakovat_bot.buttons.inline import *
 from aiogram.fsm.context import FSMContext
-from zakovat_bot.state import  QuestionState
+from zakovat_bot.state import  QuestionState, Register
 from django.utils import timezone
 from zakovat_bot.utils import sent_file_to_admins
 from decouple import config
@@ -59,7 +59,6 @@ async def process_new_question(message: Message, state: FSMContext) -> None:
                 message.document.file_id if message.document else
                 None,
         file_type=message.content_type,   
-        questioned_at=timezone.now()
     )
 
     # Faqat preview ko‘rsatamiz (kanalga yubormaymiz!)
@@ -169,14 +168,14 @@ async def change_question(callback_query: CallbackQuery) -> None:
     elif action == "delete":
         question.delete()
         await callback_query.message.delete()
-        await callback_query.message.answer(text="Savol muvaffaqiyatli o'chirildi.", reply_markup=admin_main_keyboard())
+        await callback_query.message.answer(text="🗑 Savol muvaffaqiyatli o'chirildi.", reply_markup=admin_main_keyboard())
         
         
 @dp.callback_query( F.data == "cancel")
 async def admin_main(callback_query: CallbackQuery) -> None:
     await callback_query.answer()
     await callback_query.message.delete()
-    await callback_query.message.answer(text="Admin paneli",reply_markup=admin_main_keyboard())
+    await callback_query.message.answer(text="🤵🏼 Admin paneli",reply_markup=admin_main_keyboard())
     
     
 @dp.callback_query(F.data == "admin_main_menu" )
@@ -190,6 +189,8 @@ async def approve_publish(callback: CallbackQuery):
     question_id = int(callback.data.split(":")[1])
     question = Questions.objects.get(id=question_id)
     keyboard = main_keyboard(question.uuid)
+    question.questioned_at = timezone.now()
+    question.save()
 
     if question.file_type == "text":
         await bot.send_message(
@@ -241,3 +242,118 @@ async def approve_publish(callback: CallbackQuery):
     await callback.message.edit_reply_markup()
     await callback.message.answer("📤 Kanalga muvaffaqiyatli joylandi!")
     await callback.answer()
+
+
+
+@dp.callback_query(F.data == "user_talk")
+async def user_talk(callback_query: CallbackQuery,state: FSMContext) -> None:
+    await callback_query.answer()
+    await callback_query.message.answer(text="💬 Suhbat uchun foydalanuvchi ID sini yuboring:")
+    await state.set_state(QuestionState.user_id)
+    
+    
+@dp.message(StateFilter(QuestionState.user_id))
+async def process_user_id(message: Message, state: FSMContext) -> None:
+    tg_id_text = message.text.strip() if message.text else None
+    if not tg_id_text or not tg_id_text.isdigit():
+        await message.answer("❗️ Iltimos, foydalanuvchi ID sini to'g'ri formatda yuboring.")
+        return
+
+    tg_id = int(tg_id_text)
+    await state.update_data(user_talk_id=tg_id)
+    if not Users.objects.filter(tg_id=tg_id).exists():
+        await message.answer("❗️ Bunday ID li foydalanuvchi topilmadi. Iltimos, to'g'ri ID ni kiriting.")
+        return
+    await message.answer(
+        text=f"💬 Foydalanuvchi (ID: {tg_id}) bilan suhbatni boshlang. Sizning xabaringiz ushbu foydalanuvchiga yuboriladi."
+    )
+    await state.set_state(QuestionState.user_talk)
+
+@dp.message(StateFilter(QuestionState.user_talk))
+async def process_user_talk(message: Message, state: FSMContext) -> None:
+    data = await state.get_data()
+    tg_id = data.get("user_talk_id")
+    msg_id = message.message_id
+
+    try:
+        await bot.send_message(
+            chat_id=tg_id,
+            text=f"💬 Admindan xabar:\n\n{message.text}",
+            reply_markup=answer_admin(message.from_user.id, msg_id)
+        )
+        await message.answer("✅ Xabaringiz foydalanuvchiga yuborildi.\nYana gapingiz bolsa yozing",reply_markup=end_talk_keyboard())
+    except Exception as e:
+        await message.answer(f"❗️ Xatolik yuz berdi: {str(e)}")
+
+@dp.callback_query(F.data.startswith("answer_admin_"))
+async def answer_from_admin(callback_query: CallbackQuery,state: FSMContext) -> None:
+    await callback_query.answer()
+    tg_id = int(callback_query.data.split("_")[-2])
+    msg_id = int(callback_query.data.split("_")[-1])
+    await callback_query.message.answer(
+        text=f"💬 Javobingizni yozing. Sizning habaringiz adminga yetkaziladi"
+    )
+    await state.update_data(answer_to_admin_id=tg_id, answer_to_admin_msg_id=msg_id)
+    
+    await state.set_state(QuestionState.user_answer)
+    
+    
+@dp.message(StateFilter(QuestionState.user_answer))
+async def process_answer_to_admin(message: Message, state: FSMContext) -> None:
+    data = await state.get_data()
+    tg_id = data.get("answer_to_admin_id")
+    msg_id = data.get("answer_to_admin_msg_id")
+
+    try:
+        await bot.send_message(
+            chat_id=tg_id,
+            text=f"💬 Foydalanuvchidan javob:\n\n{message.text}",
+            reply_to_message_id=msg_id
+        )
+        await message.answer("✅ Javobingiz adminga yuborildi.")
+    except Exception as e:
+        await message.answer(f"❗️ Xatolik yuz berdi: {str(e)}")
+    await state.clear()
+    
+    
+@dp.callback_query(F.data == "end_talk")
+async def end_talk(callback_query: CallbackQuery, state: FSMContext) -> None:
+    await callback_query.answer()
+    await state.clear()
+    await callback_query.message.answer("💬 Suhbat yakunlandi.",reply_markup=admin_main_keyboard())
+    
+@dp.callback_query(F.data == "broadcast_message")
+async def broadcast_message(callback_query: CallbackQuery, state: FSMContext) -> None:
+    await callback_query.answer()
+    await callback_query.message.answer("📢 Iltimos, bot foydalanuvchilariga jo'natiladigan xabar matnini kiriting:",reply_markup=back_keyboard(    ))
+    await state.set_state(Register.every_one)
+    
+@dp.message(StateFilter(Register.every_one))
+async def process_broadcast_message(message: Message, state: FSMContext) -> None:
+    text = message.text.strip() if message.text else None
+    if not text:
+        await message.answer("❗️ Iltimos, xabar matnini kiriting.")
+        return
+
+    users = Users.objects.all()
+    success_count = 0
+    fail_count = 0
+
+    for user in users:
+        try:
+            await bot.send_message(
+                chat_id=user.tg_id,
+                text=f"📢 Botdan umumiy xabar:\n\n{text}"
+            )
+            success_count += 1
+        except Exception:
+            fail_count += 1
+
+    await message.answer(f"📢 Xabar yuborildi.\nMuvaffaqiyatli: {success_count}\nMuvaffaqiyatsiz: {fail_count}",reply_markup=admin_main_keyboard())
+    await state.clear()
+    
+@dp.callback_query(F.data == "back")
+async def back_handler(callback_query: CallbackQuery, state: FSMContext) -> None:
+    await callback_query.answer()
+    await callback_query.message.delete()
+    await callback_query.message.answer(text="🤵🏼 Admin paneli",reply_markup=admin_main_keyboard())

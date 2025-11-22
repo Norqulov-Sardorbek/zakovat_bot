@@ -4,9 +4,14 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 def admin_main_keyboard():
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="➕ Yangi savol", callback_data="add_new_question"),
+            InlineKeyboardButton(text="➕ Yangi savol", callback_data="add_new_question")],[
             InlineKeyboardButton(text="❓ Savollar ro'yxati", callback_data="questions_list"),
+        ],[
+            InlineKeyboardButton(text="👥 Foydalanuvchi bilan aloqa", callback_data="user_talk"),
         ],
+        [
+            InlineKeyboardButton(text="📢 Botga habar jo'natish", callback_data="broadcast_message"),
+        ]
     ])
     return keyboard
 
@@ -90,3 +95,39 @@ def approve_keyboard(question_id):
     kb.button(text="❌ Bekor qilish", callback_data="cancel")
     kb.adjust(1)
     return kb.as_markup()
+
+
+def user_profile_keyboard():
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="👤 Profile",callback_data=f"user_profile"),
+        ],
+        
+    ])
+    return keyboard
+
+def change_info_keyboard():
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="📝 Malumotlarni yangilash", callback_data="change_info"),
+        ],
+       
+    ])
+    return keyboard
+
+def answer_admin(tg_id,msg_id):
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="✍️ Javob berish", callback_data=f"answer_admin_{tg_id}_{msg_id}"),
+        ],
+    ])
+    return keyboard
+
+
+def end_talk_keyboard():
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="🛑 Suhbatni yakunlash", callback_data="end_talk"),
+        ],
+    ])
+    return keyboard

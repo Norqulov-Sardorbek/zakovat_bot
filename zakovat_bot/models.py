@@ -13,6 +13,7 @@ class TelegramAdminsID(SafeBaseModel):
 
 class Users(SafeBaseModel):
     full_name = models.CharField(max_length=255, blank=True, null=True)
+    phone_number = models.CharField(max_length=20, blank=True, null=True)
     username = models.CharField(max_length=255, blank=True, null=True)
     tg_id = models.BigIntegerField()
 
@@ -23,7 +24,7 @@ class Questions(SafeBaseModel):
     name = models.CharField(max_length=255, blank=True, null=True)
     file_id = models.CharField(max_length=255, blank=True, null=True)
     file_type = models.CharField(max_length=50, blank=True, null=True)
-    questioned_at = models.DateTimeField(auto_now_add=True)
+    questioned_at = models.DateTimeField(null=True, blank=True)
     answers_file_sent = models.BooleanField(default=False)
     
     def __str__(self):

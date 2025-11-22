@@ -13,7 +13,7 @@ from zakovat_bot.utils import sent_file_to_admins
 @dp.message(Command("start"))
 async def start(message: Message,state: FSMContext) -> None:
     tg_id = message.from_user.id
-    username = message.from_user.username or tg_id
+    username = message.from_user.username or ""
     if TelegramAdminsID.objects.filter(tg_id=tg_id).exists():
         await message.answer(text="Siz admin panelidasiz.",reply_markup=admin_main_keyboard())
         return
@@ -24,7 +24,7 @@ async def start(message: Message,state: FSMContext) -> None:
         return
     user = Users.objects.get(tg_id=tg_id)
     if not " " in message.text:
-        await message.answer(text="Botga xush kelibsiz! ")
+        await message.answer(text="Botga xush kelibsiz! ",reply_markup=user_profile_keyboard())
         return
     args = message.text.split(" ")[1]
     question = Questions.objects.get(uuid=args)
@@ -48,16 +48,52 @@ async def register_full_name(message: Message, state: FSMContext):
     user = Users.objects.get(tg_id=tg_id)
     user.full_name = message.text
     user.save()
-    await message.answer(text="✅ Ro'yxatdan o'tish muvaffaqiyatli yakunlandi.\nSavolga javob berish tugmasini qaytadan bosing",reply_markup=ReplyKeyboardRemove())
-    await state.clear()
+    await message.answer(text="Iltimos, telefon raqamingizni ulashing:",reply_markup=ask_phone_keyboard())
+    await state.set_state(Register.phone_number)
     
+@dp.message(StateFilter(Register.phone_number))
+async def register_phone_number(message: Message, state: FSMContext):
 
-@dp.callback_query(F.data == "back")
-async def back_handler(callback_query: CallbackQuery, state: FSMContext):
-    await callback_query.message.edit_text(text="Assalomu alaykum. Bu bot sizga Buyurtmalarni avtomatik yuborib boradi.",reply_markup=ReplyKeyboardRemove())
-   
+    # 1️⃣ Agar foydalanuvchi "kontakt" yubormagan bo‘lsa
+    if not message.contact:
+        await message.answer(
+            text="❗️ Iltimos, telefon raqamingizni yuborish uchun pastdagi "
+                 "📞 *“Nomer jo‘natish”* tugmasini bosing.",
+            reply_markup=ask_phone_keyboard(), 
+            parse_mode="Markdown"
+        )
+        return
+
+    tg_id = message.from_user.id
+    user = Users.objects.get(tg_id=tg_id)
+    user.phone_number = message.contact.phone_number
+    user.save()
+
+    await message.answer(
+        text="✅ Ro'yxatdan o'tish muvaffaqiyatli yakunlandi.\n"
+             "Savolga javob berish tugmasini qaytadan bosing.",
+        reply_markup=ReplyKeyboardRemove()
+    )
+
     await state.clear()
 
+@dp.callback_query(F.data == "user_profile")
+async def user_profile(callback: CallbackQuery):
+    await callback.answer()
+    tg_id = callback.from_user.id
+    user = Users.objects.get(tg_id=tg_id)
+    profile_text = f"👤 <b>Foydalanuvchi profili:</b>\n\n"
+    profile_text += f"📝 <b>To'liq ism:</b> {user.full_name or 'Noma\'lum'}\n"
+    profile_text += f"📞 <b>Telefon raqam:</b> {user.phone_number or 'Noma\'lum'}\n"
+    profile_text += f"🔖 <b>Username:</b> @{user.username}\n"
+    await callback.message.answer(text=profile_text,parse_mode="HTML",reply_markup=change_info_keyboard())
+    
+@dp.callback_query(F.data == "change_info")
+async def change_info(callback: CallbackQuery, state: FSMContext):
+    await callback.answer()
+    await callback.message.delete()
+    await callback.message.answer(text="Iltimos, to'liq ismingizni kiriting:",reply_markup=ReplyKeyboardRemove())
+    await state.set_state(Register.full_name)
 
 @dp.message(StateFilter(Register.answer))
 async def process_answer(message: Message, state: FSMContext) -> None:
