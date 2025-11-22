@@ -288,6 +288,7 @@ async def process_user_talk(message: Message, state: FSMContext) -> None:
 @dp.callback_query(F.data.startswith("answer_admin_"))
 async def answer_from_admin(callback_query: CallbackQuery,state: FSMContext) -> None:
     await callback_query.answer()
+    await callabck_query.message.delete()
     tg_id = int(callback_query.data.split("_")[-2])
     msg_id = int(callback_query.data.split("_")[-1])
     await callback_query.message.answer(
