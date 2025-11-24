@@ -19,7 +19,7 @@ async def start(message: Message,state: FSMContext) -> None:
         return
     if not Users.objects.filter(tg_id=message.from_user.id).exists():
         Users.objects.create(tg_id=message.from_user.id,username=username)
-        await message.answer(text="Iltimos, to'liq ismingizni kiriting:",reply_markup=ReplyKeyboardRemove())
+        await message.answer(text="Iltimos, to'liq ism familiyangizni kiriting:",reply_markup=ReplyKeyboardRemove())
         await state.set_state(Register.full_name)
         return
     user = Users.objects.get(tg_id=tg_id)
@@ -67,6 +67,7 @@ async def register_phone_number(message: Message, state: FSMContext):
     tg_id = message.from_user.id
     user = Users.objects.get(tg_id=tg_id)
     user.phone_number = message.contact.phone_number
+    user.username= message.from_user.username or ""
     user.save()
 
     await message.answer(
@@ -83,7 +84,7 @@ async def user_profile(callback: CallbackQuery):
     tg_id = callback.from_user.id
     user = Users.objects.get(tg_id=tg_id)
     profile_text = f"👤 <b>Foydalanuvchi profili:</b>\n\n"
-    profile_text += f"📝 <b>To'liq ism:</b> {user.full_name or 'Noma\'lum'}\n"
+    profile_text += f"📝 <b>To'liq ism familiya:</b> {user.full_name or 'Noma\'lum'}\n"
     profile_text += f"📞 <b>Telefon raqam:</b> {user.phone_number or 'Noma\'lum'}\n"
     profile_text += f"🔖 <b>Username:</b> @{user.username}\n"
     await callback.message.answer(text=profile_text,parse_mode="HTML",reply_markup=change_info_keyboard())
@@ -92,7 +93,7 @@ async def user_profile(callback: CallbackQuery):
 async def change_info(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
     await callback.message.delete()
-    await callback.message.answer(text="Iltimos, to'liq ismingizni kiriting:",reply_markup=ReplyKeyboardRemove())
+    await callback.message.answer(text="Iltimos, to'liq ism familiyangizni kiriting:",reply_markup=ReplyKeyboardRemove())
     await state.set_state(Register.full_name)
 
 @dp.message(StateFilter(Register.answer))
