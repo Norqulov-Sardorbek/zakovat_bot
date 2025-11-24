@@ -162,7 +162,7 @@ async def change_question(callback_query: CallbackQuery) -> None:
     question = Questions.objects.get(id=question_id)
 
     if action == "download":
-        await sent_file_to_admins(question)
+        await sent_file_to_admins(question, callback_query.from_user.id)
         return
        
     elif action == "delete":

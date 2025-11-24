@@ -31,7 +31,7 @@ async def start(message: Message,state: FSMContext) -> None:
     if question.questioned_at + timezone.timedelta(days=1) < timezone.now():
         await message.answer(text="Ushbu savolga javob berish muddati tugagan.",reply_markup=ReplyKeyboardRemove())
         if not question.answers_file_sent:
-            await sent_file_to_admins(question)
+            await sent_file_to_admins(question, tg_id)
         return
     if  Answers.objects.filter(user_id=user.id,question_id=question.id).exists():
         await message.answer(text="Siz allaqachon javob bergansiz.",reply_markup=ReplyKeyboardRemove())

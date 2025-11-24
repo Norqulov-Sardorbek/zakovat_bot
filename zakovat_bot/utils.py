@@ -61,7 +61,7 @@ def build_answers_excel(question):
     buffer.seek(0)
     return buffer
 
-async def sent_file_to_admins( question):
+async def sent_file_to_admins( question,tg_id):
     excel_buffer = build_answers_excel(question)
     file_bytes = excel_buffer.getvalue()
     filename = f"{question.name}.xlsx"
@@ -69,15 +69,15 @@ async def sent_file_to_admins( question):
     admins = TelegramAdminsID.objects.all()
     doc = BufferedInputFile(file_bytes, filename=filename)
 
-    for admin in admins:
-        try:
-            await bot.send_document(
-                chat_id=admin.tg_id,
-                document=doc,
-                caption=f"Savol ID: {question.name} bo'yicha barcha javoblar."
-            )
-        except Exception as e:
-            print(f"Admin {admin.tg_id} ga yuborishda xatolik: {e}")
+    
+    try:
+        await bot.send_document(
+            chat_id=tg_id,
+            document=doc,
+            caption=f"Savol ID: {question.name} bo'yicha barcha javoblar."
+        )
+    except Exception as e:
+        print(f"Admin {tg_id} ga yuborishda xatolik: {e}")
 
     # 4) Flagni yangilash
     question.answers_file_sent = True
