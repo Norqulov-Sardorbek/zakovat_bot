@@ -15,9 +15,10 @@ class QuestionState(StatesGroup):
     user_talk = State()
     user_id = State()
     user_answer = State()
-    waiting_for_post_link= State()
     
 class ChannelSendState(StatesGroup):
     waiting_for_excel = State()
     waiting_for_message = State()
     waiting_for_confirmation = State()
+    waiting_for_post_link= State()
+    
