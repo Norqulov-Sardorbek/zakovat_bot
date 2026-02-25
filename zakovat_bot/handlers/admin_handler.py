@@ -389,9 +389,10 @@ async def handle_excel(message: Message, state: FSMContext):
 )
 
     await state.update_data(links=links)
-    await state.set_state(ChannelSendState.waiting_for_message)
+    await state.set_state(ChannelSendState.waiting_for_post_link)
 
-    await message.answer("Endi yuboriladigan xabarni yuboring.")
+    await message.answer("Endi forward qilinadigan post linkini yuboring.")
+    
     
 
 
@@ -409,33 +410,6 @@ def parse_message_link(link: str):
         username = parts[-2]
         message_id = int(parts[-1])
         return f"@{username}", message_id
-
-
-@dp.message(ChannelSendState.waiting_for_excel, F.document)
-async def handle_excel(message: Message, state: FSMContext):
-    file = await message.bot.get_file(message.document.file_id)
-    file_path = file.file_path
-    downloaded = await message.bot.download_file(file_path)
-
-    df = pd.read_excel(downloaded)
-
-    links = (
-        df.iloc[:, 1]
-        .dropna()
-        .astype(str)
-        .str.strip()
-        .str.replace("https://t.me/", "", regex=False)
-        .str.replace("http://t.me/", "", regex=False)
-        .str.replace("t.me/", "", regex=False)
-        .str.replace("@", "", regex=False)
-        .tolist()
-    )
-
-    await state.update_data(links=links)
-    await state.set_state(ChannelSendState.waiting_for_post_link)
-
-    await message.answer("Endi forward qilinadigan post linkini yuboring.")
-
 
 @dp.message(ChannelSendState.waiting_for_post_link)
 async def handle_post_link(message: Message, state: FSMContext):
