@@ -506,3 +506,6 @@ async def cancel_send(callback_query: CallbackQuery, state: FSMContext):
     await state.clear()
 
     await callback_query.message.edit_text("Bekor qilindi.")
+
+
+
