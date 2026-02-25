@@ -11,6 +11,9 @@ def admin_main_keyboard():
         ],
         [
             InlineKeyboardButton(text="📢 Botga habar jo'natish", callback_data="broadcast_message"),
+        ],
+        [
+            InlineKeyboardButton(text="📚 Kanallarga xabar yuborish", callback_data="chanel"),
         ]
     ])
     return keyboard
@@ -128,6 +131,15 @@ def end_talk_keyboard():
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(text="🛑 Suhbatni yakunlash", callback_data="end_talk"),
+        ],
+    ])
+    return keyboard
+
+def confirm_keyboard():
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="✅ Ha", callback_data=f"confirm_yes"),
+            InlineKeyboardButton(text="❌ Yo'q", callback_data="confirm_no"),
         ],
     ])
     return keyboard
