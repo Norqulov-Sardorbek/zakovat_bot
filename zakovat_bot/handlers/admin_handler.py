@@ -393,12 +393,6 @@ async def handle_excel(message: Message, state: FSMContext):
 
     await message.answer("Endi yuboriladigan xabarni yuboring.")
     
-    
-from collections import defaultdict
-import asyncio
-
-media_buffer = defaultdict(list)
-media_locks = {}
 
 
 def parse_message_link(link: str):
@@ -416,6 +410,31 @@ def parse_message_link(link: str):
         message_id = int(parts[-1])
         return f"@{username}", message_id
 
+
+@dp.message(ChannelSendState.waiting_for_excel, F.document)
+async def handle_excel(message: Message, state: FSMContext):
+    file = await message.bot.get_file(message.document.file_id)
+    file_path = file.file_path
+    downloaded = await message.bot.download_file(file_path)
+
+    df = pd.read_excel(downloaded)
+
+    links = (
+        df.iloc[:, 1]
+        .dropna()
+        .astype(str)
+        .str.strip()
+        .str.replace("https://t.me/", "", regex=False)
+        .str.replace("http://t.me/", "", regex=False)
+        .str.replace("t.me/", "", regex=False)
+        .str.replace("@", "", regex=False)
+        .tolist()
+    )
+
+    await state.update_data(links=links)
+    await state.set_state(ChannelSendState.waiting_for_post_link)
+
+    await message.answer("Endi forward qilinadigan post linkini yuboring.")
 
 
 @dp.message(ChannelSendState.waiting_for_post_link)
@@ -440,8 +459,6 @@ async def handle_post_link(message: Message, state: FSMContext):
         "Forward qilamizmi?",
         reply_markup=confirm_keyboard()
     )
-
-
 
 @dp.callback_query(ChannelSendState.waiting_for_confirmation, F.data == "confirm_yes")
 async def confirm_send(callback_query: CallbackQuery, state: FSMContext):
@@ -483,13 +500,9 @@ async def confirm_send(callback_query: CallbackQuery, state: FSMContext):
     )
 
 
-
 @dp.callback_query(ChannelSendState.waiting_for_confirmation, F.data == "confirm_no")
 async def cancel_send(callback_query: CallbackQuery, state: FSMContext):
     await callback_query.answer()
     await state.clear()
 
-    await callback_query.message.edit_text(
-        "Bekor qilindi.",
-        reply_markup=admin_main_keyboard()
-    )
+    await callback_query.message.edit_text("Bekor qilindi.")
