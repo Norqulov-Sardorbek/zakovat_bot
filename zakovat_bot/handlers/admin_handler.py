@@ -401,59 +401,46 @@ media_buffer = defaultdict(list)
 media_locks = {}
 
 
-@dp.message(ChannelSendState.waiting_for_message)
-async def handle_broadcast_message(message: Message, state: FSMContext):
+def parse_message_link(link: str):
+    link = link.strip()
 
-    if message.media_group_id:
-        media_buffer[message.media_group_id].append(message)
+    if "t.me/c/" in link:
+        parts = link.split("/")
+        chat_id = int("-100" + parts[-2])
+        message_id = int(parts[-1])
+        return chat_id, message_id
 
-        if message.media_group_id not in media_locks:
-            media_locks[message.media_group_id] = True
-            asyncio.create_task(
-                process_media_group(
-                    media_group_id=message.media_group_id,
-                    chat_id=message.chat.id,
-                    state=state
-                )
-            )
+    else:
+        parts = link.split("/")
+        username = parts[-2]
+        message_id = int(parts[-1])
+        return f"@{username}", message_id
+
+
+
+@dp.message(ChannelSendState.waiting_for_post_link)
+async def handle_post_link(message: Message, state: FSMContext):
+
+    post_link = message.text.strip()
+
+    try:
+        source_chat_id, message_id = parse_message_link(post_link)
+    except:
+        await message.answer("Link noto‘g‘ri formatda.")
         return
 
     await state.update_data(
-        message_ids=[message.message_id],
-        from_chat_id=message.chat.id
+        source_chat_id=source_chat_id,
+        message_id=message_id
     )
 
     await state.set_state(ChannelSendState.waiting_for_confirmation)
 
     await message.answer(
-        "Xabar tayyor.\n\nYuboramizmi?",
+        "Forward qilamizmi?",
         reply_markup=confirm_keyboard()
     )
 
-
-async def process_media_group(media_group_id, chat_id, state: FSMContext):
-    await asyncio.sleep(1.2)
-
-    messages = media_buffer.pop(media_group_id, [])
-    media_locks.pop(media_group_id, None)
-
-    if not messages:
-        return
-
-    messages.sort(key=lambda x: x.message_id)
-
-    await state.update_data(
-        message_ids=[m.message_id for m in messages],
-        from_chat_id=chat_id
-    )
-
-    await state.set_state(ChannelSendState.waiting_for_confirmation)
-
-    await messages[0].bot.send_message(
-        chat_id=chat_id,
-        text="Xabar tayyor.\n\nYuboramizmi?",
-        reply_markup=confirm_keyboard()
-    )
 
 
 @dp.callback_query(ChannelSendState.waiting_for_confirmation, F.data == "confirm_yes")
@@ -462,41 +449,39 @@ async def confirm_send(callback_query: CallbackQuery, state: FSMContext):
     await callback_query.answer()
 
     links = data["links"]
-    message_ids = data["message_ids"]
-    from_chat_id = data["from_chat_id"]
+    source_chat_id = data["source_chat_id"]
+    message_id = data["message_id"]
 
-    await callback_query.message.edit_text(
-        "Yuborilmoqda...",
-        reply_markup=admin_main_keyboard()
-    )
+    await callback_query.message.edit_text("Yuborilmoqda...")
 
     success = 0
-    await state.clear()
 
     for link in links:
-        chat = link.strip()
+        target_chat = link.strip()
 
-        if not chat.startswith("@") and not chat.startswith("-100"):
-            chat = f"@{chat}"
+        if not target_chat.startswith("@") and not target_chat.startswith("-100"):
+            target_chat = f"@{target_chat}"
 
-        print(f"Yuborilmoqda: {chat} ga {message_ids} xabarlar...")
+        print(f"Forward: {source_chat_id}/{message_id} → {target_chat}")
 
         try:
-            await callback_query.bot.copy_messages(
-                chat_id=chat,
-                from_chat_id=from_chat_id,
-                message_ids=message_ids
+            await callback_query.bot.forward_message(
+                chat_id=target_chat,
+                from_chat_id=source_chat_id,
+                message_id=message_id
             )
             success += 1
         except Exception as e:
-            print(f"Xatolik {chat}: {e}")
+            print(f"Xatolik {target_chat}: {e}")
 
         await asyncio.sleep(0.05)
 
+    await state.clear()
+
     await callback_query.message.edit_text(
-        f"Yuborildi: {success} ta.",
-        reply_markup=admin_main_keyboard()
+        f"Yuborildi: {success} ta."
     )
+
 
 
 @dp.callback_query(ChannelSendState.waiting_for_confirmation, F.data == "confirm_no")
