@@ -390,97 +390,119 @@ async def handle_excel(message: Message, state: FSMContext):
 )
 
     await state.update_data(links=links)
-    await state.set_state(ChannelSendState.waiting_for_post_link)
+    await state.set_state(ChannelSendState.waiting_for_message)
 
-    await message.answer("Endi forward qilinadigan post linkini yuboring.")
+    await message.answer("Endi forward qilinadigan messageni yuboring.")
     
     
+from collections import defaultdict
+import asyncio
+
+pending_posts = {}
+pending_tasks = {}
+from aiogram.exceptions import TelegramRetryAfter
 
 
-def parse_message_link(link: str):
-    link = link.strip()
+@dp.message(ChannelSendState.waiting_for_message)
+async def handle_post(message: Message, state: FSMContext):
 
-    if "t.me/c/" in link:
-        parts = link.split("/")
-        chat_id = int("-100" + parts[-2])
-        message_id = int(parts[-1])
-        return chat_id, message_id
+    user_id = message.from_user.id
+    chat_id = message.chat.id
 
-    else:
-        parts = link.split("/")
-        username = parts[-2]
-        message_id = int(parts[-1])
-        return f"@{username}", message_id
+    if user_id not in pending_posts:
+        pending_posts[user_id] = {
+            "chat_id": chat_id,
+            "message_ids": []
+        }
 
-@dp.message(ChannelSendState.waiting_for_post_link)
-async def handle_post_link(message: Message, state: FSMContext):
+    pending_posts[user_id]["message_ids"].append(message.message_id)
 
-    post_link = message.text.strip()
+    if user_id in pending_tasks:
+        pending_tasks[user_id].cancel()
 
-    try:
-        source_chat_id, message_id = parse_message_link(post_link)
-    except:
-        await message.answer("Link noto‘g‘ri formatda.")
+    pending_tasks[user_id] = asyncio.create_task(
+        finalize_post(user_id, state)
+    )
+    
+async def finalize_post(user_id: int, state: FSMContext):
+
+    await asyncio.sleep(1.2)
+
+    post_data = pending_posts.pop(user_id, None)
+    pending_tasks.pop(user_id, None)
+
+    if not post_data:
         return
 
     await state.update_data(
-        source_chat_id=source_chat_id,
-        message_id=message_id
+        source_chat_id=post_data["chat_id"],
+        message_ids=post_data["message_ids"]
     )
 
     await state.set_state(ChannelSendState.waiting_for_confirmation)
 
-    await message.answer(
+    await bot.send_message(
+        user_id,
         "Forward qilamizmi?",
         reply_markup=confirm_keyboard()
     )
-
 @dp.callback_query(ChannelSendState.waiting_for_confirmation, F.data == "confirm_yes")
 async def confirm_send(callback_query: CallbackQuery, state: FSMContext):
+
     data = await state.get_data()
     await callback_query.answer()
 
     links = data["links"]
     source_chat_id = data["source_chat_id"]
-    message_id = data["message_id"]
+    message_ids = data["message_ids"]
 
     await callback_query.message.edit_text("Yuborilmoqda...")
 
     success = 0
+    failed = 0
 
     for link in links:
+
         target_chat = link.strip()
 
         if not target_chat.startswith("@") and not target_chat.startswith("-100"):
             target_chat = f"@{target_chat}"
 
-        print(f"Forward: {source_chat_id}/{message_id} → {target_chat}")
-
         try:
-            await callback_query.bot.forward_message(
+            await callback_query.bot.forward_messages(
                 chat_id=target_chat,
                 from_chat_id=source_chat_id,
-                message_id=message_id
+                message_ids=message_ids
             )
             success += 1
+
+        except TelegramRetryAfter as e:
+            await asyncio.sleep(e.retry_after)
+            try:
+                await callback_query.bot.forward_messages(
+                    chat_id=target_chat,
+                    from_chat_id=source_chat_id,
+                    message_ids=message_ids
+                )
+                success += 1
+            except:
+                failed += 1
+
         except Exception as e:
             print(f"Xatolik {target_chat}: {e}")
+            failed += 1
 
         await asyncio.sleep(0.05)
 
     await state.clear()
 
     await callback_query.message.edit_text(
-        f"Yuborildi: {success} ta."
+        f"Yuborildi: {success} ta\nXatolik: {failed} ta",reply_markup=admin_main_keyboard()
     )
-
-
+    
+    
 @dp.callback_query(ChannelSendState.waiting_for_confirmation, F.data == "confirm_no")
 async def cancel_send(callback_query: CallbackQuery, state: FSMContext):
     await callback_query.answer()
     await state.clear()
-
-    await callback_query.message.edit_text("Bekor qilindi.")
-
-
-
+    await callback_query.message.edit_text("Bekor qilindi.", reply_markup=admin_main_keyboard())
